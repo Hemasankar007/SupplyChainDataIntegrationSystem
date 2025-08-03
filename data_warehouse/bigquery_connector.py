@@ -486,6 +486,93 @@ class BigQueryConnector:
         
         self._execute_query(query.format(project_id=self.project_id, dataset_id=self.dataset_id))
     
+    def create_vendor_performance_mart(self, orders_df, vendors_df):
+        """
+        Create a vendor/supplier performance data mart.
+        Metrics: On-time delivery rate, defect rate, average lead time, total spend per vendor.
+        """
+        vendor_metrics = orders_df.groupby('Vendor ID').agg({
+            'Order ID': 'count',
+            'Lead Time (Days)': 'mean',
+            'Defect Flag': 'mean',
+            'Spend': 'sum',
+            'On Time Flag': 'mean'
+        }).rename(columns={
+            'Order ID': 'Total Orders',
+            'Lead Time (Days)': 'Avg Lead Time',
+            'Defect Flag': 'Defect Rate',
+            'Spend': 'Total Spend',
+            'On Time Flag': 'On-Time Delivery Rate'
+        }).reset_index()
+        return vendor_metrics.merge(vendors_df, on='Vendor ID', how='left')
+
+    def create_inventory_analysis_mart(self, inventory_df):
+        """
+        Create inventory analysis data mart with stock level metrics.
+        Metrics: Current stock, stockout risk, turnover rate, reorder point.
+        """
+        inventory_df['Stockout Risk'] = inventory_df['stock_level'] < inventory_df['reorder_point']
+        analysis = inventory_df.groupby('Item ID').agg({
+            'stock_level': 'last',
+            'Stockout Risk': 'max',
+            'turnover_rate': 'mean',
+            'reorder_point': 'last'
+        }).reset_index()
+        return analysis
+
+    def create_order_fulfillment_mart(self, orders_df):
+        """
+        Build order fulfillment analytics mart.
+        Metrics: Fill rate, order accuracy, average fulfillment time, return rate.
+        """
+        orders_df['Return Flag'] = orders_df['Order ID'].isin(orders_df.get('Returned Orders', []))
+        fulfillment = orders_df.groupby('Order ID').agg({
+            'Fill Rate': 'mean',
+            'Order Accuracy': 'mean',
+            'Fulfillment Time (Days)': 'mean',
+            'Return Flag': 'mean'
+        }).rename(columns={'Return Flag': 'Return Rate'}).reset_index()
+        return fulfillment
+
+    def create_category_performance_mart(self, orders_df, products_df):
+        """
+        Implement product category performance analytics.
+        Metrics: Sales, returns, average lead time, inventory turnover per category.
+        """
+        merged = orders_df.merge(products_df[['Product ID', 'Category']], on='Product ID', how='left')
+        category_metrics = merged.groupby('Category').agg({
+            'Sales': 'sum',
+            'Order ID': 'count',
+            'Lead Time (Days)': 'mean',
+            'Returned': 'sum',
+            'Inventory Turnover': 'mean'
+        }).rename(columns={
+            'Sales': 'Total Sales',
+            'Order ID': 'Order Count',
+            'Lead Time (Days)': 'Avg Lead Time',
+            'Returned': 'Total Returns',
+            'Inventory Turnover': 'Avg Inventory Turnover'
+        }).reset_index()
+        return category_metrics
+
+    def create_shipping_logistics_mart(self, shipments_df):
+        """
+        Create shipping and logistics analysis mart.
+        Metrics: Freight cost, delivery time, on-time rate, shipment volume.
+        """
+        logistics = shipments_df.groupby('Carrier').agg({
+            'Shipment ID': 'count',
+            'Freight Cost': 'sum',
+            'Delivery Time (Days)': 'mean',
+            'On Time Flag': 'mean'
+        }).rename(columns={
+            'Shipment ID': 'Total Shipments',
+            'Freight Cost': 'Total Freight Cost',
+            'Delivery Time (Days)': 'Avg Delivery Time',
+            'On Time Flag': 'On-Time Rate'
+        }).reset_index()
+        return logistics
+    
     def _execute_query(self, query):
 
         try:
@@ -493,4 +580,4 @@ class BigQueryConnector:
             job.result()
             self.logger.info("Query executed successfully")
         except Exception as e:
-            self.logger.error(f"Error executing query: {str(e)}") 
+            self.logger.error(f"Error executing query: {str(e)}")
