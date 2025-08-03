@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import random
 from helpers.logging_utils import record_pipeline_event, record_data_validation
-from settings import FAKE_STORE_API_BASE_URL, INVENTORY_SIMULATION_DAYS, RESTOCKING_FREQUENCY, DEMAND_VARIABILITY
+from config import FAKE_STORE_API_BASE_URL, INVENTORY_SIMULATION_DAYS, RESTOCKING_FREQUENCY, DEMAND_VARIABILITY
 
 class ExternalAPIHandler:
     """

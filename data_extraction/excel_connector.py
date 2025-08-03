@@ -2,208 +2,125 @@ import pandas as pd
 import os
 import kaggle
 from datetime import datetime
-from utils.logger import log_pipeline_step, log_data_quality_check
-from config import DATA_DIR, EXCEL_FILE_PATH, KAGGLE_DATASET_NAME
+from helpers.logging_utils import record_pipeline_event, record_data_validation
+from settings import DATA_DIR, EXCEL_FILE_PATH, KAGGLE_DATASET_NAME
 
-class ExcelConnector:
+class ExcelDataIntegrator:
     """
-    Handles extraction and processing of Excel data from Global Superstore dataset
+    Manages extraction, validation, and transformation of Excel-based logistics data
     """
-    
+
     def __init__(self):
-        self.logger = log_pipeline_step("ExcelConnector", "STARTED")
+        self.logger = record_pipeline_event("ExcelDataIntegrator", "INITIALIZED")
         self.data_dir = DATA_DIR
-        self.excel_file_path = EXCEL_FILE_PATH
-        
-    def download_dataset(self):
+        self.excel_path = EXCEL_FILE_PATH
+
+    def fetch_dataset_from_kaggle(self):
         """
-        Download the Global Superstore dataset from Kaggle
+        Download dataset from Kaggle and extract
         """
         try:
-            self.logger.info("Downloading Global Superstore dataset from Kaggle...")
-            
-            # Create data directory if it doesn't exist
+            self.logger.info("Starting dataset download from Kaggle...")
             os.makedirs(self.data_dir, exist_ok=True)
-            
-            # Download dataset
             kaggle.api.dataset_download_files(
-                KAGGLE_DATASET_NAME, 
-                path=self.data_dir, 
+                KAGGLE_DATASET_NAME,
+                path=self.data_dir,
                 unzip=True
             )
-            
-            self.logger.info("Dataset downloaded successfully")
+            self.logger.info("Dataset downloaded and extracted successfully.")
             return True
-            
         except Exception as e:
-            self.logger.error(f"Error downloading dataset: {str(e)}")
+            self.logger.error(f"Dataset download failed: {str(e)}")
             return False
-    
-    def load_orders_data(self):
-        """
-        Load and process Orders sheet from Excel file
-        """
+
+    def read_orders_sheet(self):
         try:
-            self.logger.info("Loading Orders data from Excel...")
-            
-            # Read Orders sheet
-            orders_df = pd.read_excel(self.excel_file_path, sheet_name='Orders')
-            
-            # Data quality checks
-            self._validate_orders_data(orders_df)
-            
-            # Transform data
-            orders_df = self._transform_orders_data(orders_df)
-            
-            self.logger.info(f"Orders data loaded successfully. Shape: {orders_df.shape}")
-            return orders_df
-            
+            self.logger.info("Reading Orders sheet...")
+            df = pd.read_excel(self.excel_path, sheet_name='Orders')
+            self._check_orders_quality(df)
+            df = self._process_orders_data(df)
+            self.logger.info(f"Orders data loaded. Rows: {df.shape[0]}")
+            return df
         except Exception as e:
-            self.logger.error(f"Error loading Orders data: {str(e)}")
+            self.logger.error(f"Failed to read Orders: {str(e)}")
             return None
-    
-    def load_returns_data(self):
-        """
-        Load and process Returns sheet from Excel file
-        """
+
+    def read_returns_sheet(self):
         try:
-            self.logger.info("Loading Returns data from Excel...")
-            
-            # Read Returns sheet
-            returns_df = pd.read_excel(self.excel_file_path, sheet_name='Returns')
-            
-            # Data quality checks
-            self._validate_returns_data(returns_df)
-            
-            # Transform data
-            returns_df = self._transform_returns_data(returns_df)
-            
-            self.logger.info(f"Returns data loaded successfully. Shape: {returns_df.shape}")
-            return returns_df
-            
+            self.logger.info("Reading Returns sheet...")
+            df = pd.read_excel(self.excel_path, sheet_name='Returns')
+            self._check_returns_quality(df)
+            df = self._process_returns_data(df)
+            self.logger.info(f"Returns data loaded. Rows: {df.shape[0]}")
+            return df
         except Exception as e:
-            self.logger.error(f"Error loading Returns data: {str(e)}")
+            self.logger.error(f"Failed to read Returns: {str(e)}")
             return None
-    
-    def load_people_data(self):
-        """
-        Load and process People sheet from Excel file
-        """
+
+    def read_people_sheet(self):
         try:
-            self.logger.info("Loading People data from Excel...")
-            
-            # Read People sheet
-            people_df = pd.read_excel(self.excel_file_path, sheet_name='People')
-            
-            # Data quality checks
-            self._validate_people_data(people_df)
-            
-            # Transform data
-            people_df = self._transform_people_data(people_df)
-            
-            self.logger.info(f"People data loaded successfully. Shape: {people_df.shape}")
-            return people_df
-            
+            self.logger.info("Reading People sheet...")
+            df = pd.read_excel(self.excel_path, sheet_name='People')
+            self._check_people_quality(df)
+            df = self._process_people_data(df)
+            self.logger.info(f"People data loaded. Rows: {df.shape[0]}")
+            return df
         except Exception as e:
-            self.logger.error(f"Error loading People data: {str(e)}")
+            self.logger.error(f"Failed to read People: {str(e)}")
             return None
-    
-    def _validate_orders_data(self, df):
-        """
-        Validate Orders data quality
-        """
-        # Check for missing values
-        missing_pct = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
-        if missing_pct > 0.05:  # 5% threshold
-            log_data_quality_check("Orders Missing Data", "WARNING", f"Missing data: {missing_pct:.2%}")
-        else:
-            log_data_quality_check("Orders Missing Data", "PASS", f"Missing data: {missing_pct:.2%}")
-        
-        # Check for required columns
-        required_columns = ['Order ID', 'Order Date', 'Ship Date', 'Customer ID', 'Product ID']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            log_data_quality_check("Orders Required Columns", "FAIL", f"Missing columns: {missing_columns}")
-        else:
-            log_data_quality_check("Orders Required Columns", "PASS")
-    
-    def _validate_returns_data(self, df):
-        """
-        Validate Returns data quality
-        """
-        # Check for missing values
-        missing_pct = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
-        if missing_pct > 0.05:
-            log_data_quality_check("Returns Missing Data", "WARNING", f"Missing data: {missing_pct:.2%}")
-        else:
-            log_data_quality_check("Returns Missing Data", "PASS", f"Missing data: {missing_pct:.2%}")
-    
-    def _validate_people_data(self, df):
-        """
-        Validate People data quality
-        """
-        # Check for missing values
-        missing_pct = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
-        if missing_pct > 0.05:
-            log_data_quality_check("People Missing Data", "WARNING", f"Missing data: {missing_pct:.2%}")
-        else:
-            log_data_quality_check("People Missing Data", "PASS", f"Missing data: {missing_pct:.2%}")
-    
-    def _transform_orders_data(self, df):
-        """
-        Transform Orders data for analysis
-        """
-        # Convert date columns
-        date_columns = ['Order Date', 'Ship Date']
-        for col in date_columns:
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col])
-        
-        # Calculate lead time
-        if 'Order Date' in df.columns and 'Ship Date' in df.columns:
-            df['Lead Time (Days)'] = (df['Ship Date'] - df['Order Date']).dt.days
-        
-        # Add year, month, quarter for time-based analysis
+
+    def _check_orders_quality(self, df):
+        missing = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
+        status = "PASS" if missing <= 0.05 else "WARNING"
+        record_data_validation("Orders Missing Data", status, f"{missing:.2%} missing")
+
+        required = ['Order ID', 'Order Date', 'Ship Date', 'Customer ID', 'Product ID']
+        missing_cols = [c for c in required if c not in df.columns]
+        status = "PASS" if not missing_cols else "FAIL"
+        record_data_validation("Orders Required Columns", status, str(missing_cols) if missing_cols else "All present")
+
+    def _check_returns_quality(self, df):
+        missing = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
+        status = "PASS" if missing <= 0.05 else "WARNING"
+        record_data_validation("Returns Missing Data", status, f"{missing:.2%} missing")
+
+    def _check_people_quality(self, df):
+        missing = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
+        status = "PASS" if missing <= 0.05 else "WARNING"
+        record_data_validation("People Missing Data", status, f"{missing:.2%} missing")
+
+    def _process_orders_data(self, df):
         if 'Order Date' in df.columns:
+            df['Order Date'] = pd.to_datetime(df['Order Date'])
             df['Order Year'] = df['Order Date'].dt.year
             df['Order Month'] = df['Order Date'].dt.month
             df['Order Quarter'] = df['Order Date'].dt.quarter
-        
-        # Calculate order value if not present
+
+        if 'Ship Date' in df.columns:
+            df['Ship Date'] = pd.to_datetime(df['Ship Date'])
+
+        if 'Order Date' in df.columns and 'Ship Date' in df.columns:
+            df['Lead Time (Days)'] = (df['Ship Date'] - df['Order Date']).dt.days
+
         if 'Sales' in df.columns and 'Quantity' in df.columns:
             df['Order Value'] = df['Sales'] * df['Quantity']
-        
+
         return df
-    
-    def _transform_returns_data(self, df):
-        """
-        Transform Returns data for analysis
-        """
-        # Convert date columns
+
+    def _process_returns_data(self, df):
         if 'Return Date' in df.columns:
             df['Return Date'] = pd.to_datetime(df['Return Date'])
-        
         return df
-    
-    def _transform_people_data(self, df):
-        """
-        Transform People data for analysis
-        """
-        # Ensure Person column exists
+
+    def _process_people_data(self, df):
         if 'Person' not in df.columns:
             df['Person'] = 'Unknown'
-        
         return df
-    
-    def get_all_data(self):
-        """
-        Load all sheets from the Excel file
-        """
-        data = {}
-        
-        # Load each sheet
-        data['orders'] = self.load_orders_data()
-        data['returns'] = self.load_returns_data()
-        data['people'] = self.load_people_data()
-        
-        return data
+
+    def load_complete_dataset(self):
+        dataset = {
+            'orders': self.read_orders_sheet(),
+            'returns': self.read_returns_sheet(),
+            'people': self.read_people_sheet()
+        }
+        return dataset

@@ -18,6 +18,7 @@ from data_extraction.excel_connector import ExcelConnector
 from data_extraction.api_connector import APIConnector
 from data_processing.supply_chain_metrics import SupplyChainMetrics
 from data_warehouse.bigquery_connector import BigQueryConnector
+from analytics_dashboard.streamlit_app import SupplyChainDashboard
 from helpers.logging_utils import record_pipeline_event, generate_alert, initialize_logger
 from settings import *
 
@@ -35,6 +36,7 @@ class SupplyChainPipeline:
         self.api_connector = APIConnector()
         self.metrics_calculator = SupplyChainMetrics()
         self.bigquery_connector = BigQueryConnector()
+        self.dashboard = SupplyChainDashboard()
         
         # Data storage
         self.data_dict = {}

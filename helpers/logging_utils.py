@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from config import LOG_LEVEL, LOG_FILE
+from settings import LOG_LEVEL, LOG_FILE
 
 def initialize_logger(logger_name="logistics_dashboard"):
 
