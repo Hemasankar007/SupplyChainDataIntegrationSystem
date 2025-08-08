@@ -3,7 +3,7 @@ import os
 import kaggle
 from datetime import datetime
 from helpers.logging_utils import record_pipeline_event, record_data_validation
-from config import DATA_DIR, EXCEL_FILE_PATH, KAGGLE_DATASET_NAME
+from settings import DATA_DIR, EXCEL_FILE_PATH, KAGGLE_DATASET_NAME
 
 class ExcelConnector:
     """
@@ -162,7 +162,9 @@ class ExcelConnector:
         # Calculate lead time
         if 'Order Date' in df.columns and 'Ship Date' in df.columns:
             df['Lead Time (Days)'] = (df['Ship Date'] - df['Order Date']).dt.days
-        
+            # Simulate delivery date
+            df['Delivery Date'] = df['Ship Date'] + pd.to_timedelta(df['Lead Time (Days)'] * 0.5, unit='d')
+
         # Add year, month, quarter for time-based analysis
         if 'Order Date' in df.columns:
             df['Order Year'] = df['Order Date'].dt.year
@@ -183,6 +185,10 @@ class ExcelConnector:
         if 'Return Date' in df.columns:
             df['Return Date'] = pd.to_datetime(df['Return Date'])
         
+        # Add return reason
+        return_reasons = ['Defective', 'Wrong Item', 'Changed Mind', 'Damaged']
+        df['Return Reason'] = [return_reasons[i % len(return_reasons)] for i in range(len(df))]
+
         return df
     
     def _transform_people_data(self, df):

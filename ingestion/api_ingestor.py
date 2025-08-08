@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import random
 from helpers.logging_utils import record_pipeline_event, record_data_validation
-from config import FAKE_STORE_API_BASE_URL, INVENTORY_SIMULATION_DAYS, RESTOCKING_FREQUENCY, DEMAND_VARIABILITY
+from settings import FAKE_STORE_API_BASE_URL, INVENTORY_SIMULATION_DAYS, RESTOCKING_FREQUENCY, DEMAND_VARIABILITY
 
 class ExternalAPIHandler:
     """
@@ -48,35 +48,56 @@ class ExternalAPIHandler:
 
     def simulate_inventory_activity(self, product_df, simulation_days=INVENTORY_SIMULATION_DAYS):
         """
-        Generate synthetic inventory records over a defined timeframe
+        Generate synthetic inventory records with trend, seasonality, and randomness.
         """
         try:
             self.logger.info(f"Simulating inventory for {simulation_days} days...")
             inventory_records = []
             simulation_start = datetime.now() - timedelta(days=simulation_days)
 
-            for day in range(simulation_days):
-                simulation_date = simulation_start + timedelta(days=day)
+            for _, item in product_df.iterrows():
+                base_demand = random.uniform(5, 20)
+                trend_factor = 1.05  # 5% growth over the simulation period
+                
+                # Generate daily stock levels
+                for day in range(simulation_days):
+                    simulation_date = simulation_start + timedelta(days=day)
+                    
+                    # Seasonal effect (e.g., higher demand on weekends)
+                    seasonal_factor = 1.2 if simulation_date.weekday() >= 5 else 0.9
+                    
+                    # Random noise
+                    random_factor = random.uniform(1 - DEMAND_VARIABILITY, 1 + DEMAND_VARIABILITY)
+                    
+                    # Combine factors to get final demand
+                    demand = int(base_demand * seasonal_factor * random_factor)
+                    
+                    # Trend effect
+                    base_demand *= (trend_factor ** (1 / simulation_days))
 
-                for _, item in product_df.iterrows():
-                    base_demand = random.randint(1, 10)
-                    adjusted_demand = max(0, int(base_demand * random.uniform(1 - DEMAND_VARIABILITY, 1 + DEMAND_VARIABILITY)))
-
+                    # Simulate stock changes
                     if day == 0:
-                        stock_today = random.randint(50, 200)
+                        stock_level = random.randint(100, 300)
                     else:
-                        prev_entry = next((r for r in inventory_records if r['product_id'] == item['id'] and r['date'] == simulation_date - timedelta(days=1)), None)
-                        stock_today = prev_entry['stock_level'] if prev_entry else random.randint(50, 200)
+                        # Find previous day's stock level
+                        prev_entry = next((r for r in reversed(inventory_records) if r['product_id'] == item['id']), None)
+                        stock_level = prev_entry['stock_level'] if prev_entry else random.randint(100, 300)
 
-                    current_stock = stock_today - adjusted_demand
-                    if day % RESTOCKING_FREQUENCY == 0:
-                        restock_qty = random.randint(50, 100)
-                        current_stock += restock_qty
+                    # Decrease stock by demand
+                    stock_level -= demand
+                    
+                    # Restocking logic
+                    was_restocked = False
+                    restock_qty = 0
+                    if day > 0 and day % RESTOCKING_FREQUENCY == 0:
+                        restock_qty = random.randint(75, 150)
+                        stock_level += restock_qty
                         was_restocked = True
-                    else:
-                        restock_qty = 0
-                        was_restocked = False
 
+                    # Ensure stock is not negative
+                    stock_level = max(0, stock_level)
+                    
+                    # Price variation
                     price_variation = item['price'] * random.uniform(0.95, 1.05)
 
                     record = {
@@ -84,15 +105,14 @@ class ExternalAPIHandler:
                         'product_id': item['id'],
                         'product_name': item['title'],
                         'category': item['category'],
-                        'daily_demand': adjusted_demand,
-                        'stock_level': max(0, current_stock),
+                        'daily_demand': demand,
+                        'stock_level': stock_level,
                         'restock_amount': restock_qty,
                         'restocked': was_restocked,
                         'price': price_variation,
                         'original_price': item['price'],
                         'price_change_pct': ((price_variation - item['price']) / item['price']) * 100
                     }
-
                     inventory_records.append(record)
 
             inventory_df = pd.DataFrame(inventory_records)

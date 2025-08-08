@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from helpers.logging_utils import record_pipeline_event, record_data_validation
-from config import LEAD_TIME_THRESHOLDS, FILL_RATE_THRESHOLDS
+from settings import LEAD_TIME_THRESHOLDS, FILL_RATE_THRESHOLDS
 
 class LogisticsAnalytics:
     def __init__(self):

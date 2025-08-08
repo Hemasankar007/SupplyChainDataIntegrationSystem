@@ -14,10 +14,10 @@ import time
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from data_extraction.excel_connector import ExcelConnector
-from data_extraction.api_connector import APIConnector
-from data_processing.supply_chain_metrics import SupplyChainMetrics
-from data_warehouse.bigquery_connector import BigQueryConnector
+'''from data_extraction.excel_connector import ExcelDataIntegrator
+from data_extraction.api_connector import ExternalAPIHandler
+from data_processing.supply_chain_metrics import LogisticsAnalytics
+from data_warehouse.bigquery_connector import BigQueryConnector'''
 from helpers.logging_utils import record_pipeline_event, generate_alert, initialize_logger
 from settings import *
 
@@ -31,9 +31,9 @@ class SupplyChainPipeline:
         self.logger.info("Initializing Supply Chain Data Integration Pipeline")
         
         # Initialize components
-        self.excel_connector = ExcelConnector()
-        self.api_connector = APIConnector()
-        self.metrics_calculator = SupplyChainMetrics()
+        self.excel_connector = ExcelDataIntegrator()
+        self.api_connector = ExternalAPIHandler()
+        self.metrics_calculator = LogisticsAnalytics()
         self.bigquery_connector = BigQueryConnector()
         
         # Data storage
@@ -243,24 +243,29 @@ class SupplyChainPipeline:
         sample_orders['Order Value'] = sample_orders['Sales'] * sample_orders['Quantity']
         
         # Sample inventory data
+        num_products = 10
+        days = 30
+        total_rows = num_products * days
+
         sample_inventory = pd.DataFrame({
-            'date': pd.date_range('2024-01-01', periods=30, freq='D'),
-            'product_id': [f'PROD_{i%10:02d}' for i in range(1, 301)],
-            'product_name': [f'Product {i%10}' for i in range(1, 301)],
-            'category': ['Electronics', 'Clothing', 'Home', 'Sports'] * 75,
-            'stock_level': np.random.randint(10, 200, 300),
-            'daily_demand': np.random.randint(1, 10, 300),
-            'restock_amount': np.random.randint(0, 50, 300),
-            'restocked': np.random.choice([True, False], 300, p=[0.3, 0.7]),
-            'price': np.random.uniform(20, 500, 300),
-            'original_price': np.random.uniform(20, 500, 300),
-            'price_change_pct': np.random.uniform(-10, 10, 300),
-            'days_of_inventory': np.random.uniform(5, 30, 300),
-            'stockout_risk': np.random.choice([True, False], 300, p=[0.1, 0.9]),
-            'annualized_turnover': np.random.uniform(2, 12, 300),
-            'fill_rate': np.random.uniform(0.7, 1.0, 300)
+    'date': np.tile(pd.date_range('2024-01-01', periods=days, freq='D'), num_products),
+    'product_id': np.repeat([f'PROD_{i:02d}' for i in range(num_products)], days),
+    'product_name': np.repeat([f'Product {i}' for i in range(num_products)], days),
+    'category': np.repeat(['Electronics', 'Clothing', 'Home', 'Sports', 'Electronics',
+                           'Clothing', 'Home', 'Sports', 'Electronics', 'Clothing'], days),
+    'stock_level': np.random.randint(10, 200, total_rows),
+    'daily_demand': np.random.randint(1, 10, total_rows),
+    'restock_amount': np.random.randint(0, 50, total_rows),
+    'restocked': np.random.choice([True, False], total_rows, p=[0.3, 0.7]),
+    'price': np.random.uniform(20, 500, total_rows),
+    'original_price': np.random.uniform(20, 500, total_rows),
+    'price_change_pct': np.random.uniform(-10, 10, total_rows),
+    'days_of_inventory': np.random.uniform(5, 30, total_rows),
+    'stockout_risk': np.random.choice([True, False], total_rows, p=[0.1, 0.9]),
+    'annualized_turnover': np.random.uniform(2, 12, total_rows),
+    'fill_rate': np.random.uniform(0.7, 1.0, total_rows)
         })
-        
+
         # Sample returns data
         sample_returns = pd.DataFrame({
             'Return Date': pd.date_range('2024-01-01', periods=20, freq='D'),

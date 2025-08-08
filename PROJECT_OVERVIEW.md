@@ -84,9 +84,7 @@ Supply-Chain-Data-Integration-System-main/
 - Integrate more data sources in `data_extraction/`
 - Extend dashboard features in `dashboard/streamlit_app.py`
 
-## License
 
-MIT License
 
 ---
 
